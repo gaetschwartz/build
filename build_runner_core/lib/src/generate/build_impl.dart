@@ -373,7 +373,7 @@ class _SingleBuild {
     var phase = _buildPhases[phaseNumber];
     var packageNode = _packageGraph[package]!;
 
-    await Future.wait(
+    await pooledWait(
         _assetGraph.outputsForPhase(package, phaseNumber).map((node) async {
       if (!shouldBuildForDirs(node.id,
           buildDirs: _buildPaths(_buildDirs),
@@ -408,7 +408,7 @@ class _SingleBuild {
   /// but not output.
   Future<Iterable<AssetId>> _runBuilder(int phaseNumber, InBuildPhase action,
       Iterable<AssetId> primaryInputs) async {
-    var outputLists = await Future.wait(
+    var outputLists = await pooledWait(
         primaryInputs.map((input) => _runForInput(phaseNumber, action, input)));
     return outputLists.fold<List<AssetId>>(
         <AssetId>[], (combined, next) => combined..addAll(next));
@@ -565,7 +565,7 @@ class _SingleBuild {
   Future<Iterable<AssetId>> _runPostProcessPhase(
       int phaseNum, PostBuildPhase phase) async {
     var actionNum = 0;
-    var outputLists = await Future.wait(phase.builderActions
+    var outputLists = await pooledWait(phase.builderActions
         .map((action) => _runPostProcessAction(phaseNum, actionNum++, action)));
     return outputLists.fold<List<AssetId>>(
         <AssetId>[], (combined, next) => combined..addAll(next));
@@ -586,7 +586,7 @@ class _SingleBuild {
       }
       return false;
     }).cast<PostProcessAnchorNode>();
-    var outputLists = await Future.wait(anchorNodes.map((anchorNode) =>
+    var outputLists = await pooledWait(anchorNodes.map((anchorNode) =>
         _runPostProcessBuilderForAnchor(
             phaseNum, actionNum, action.builder, anchorNode)));
     return outputLists.fold<List<AssetId>>(
@@ -745,7 +745,7 @@ class _SingleBuild {
   /// regenerated based on its inputs hash changing. All assets in [outputs]
   /// must correspond to a [GeneratedAssetNode].
   Future<void> _cleanUpStaleOutputs(Iterable<AssetId> outputs) =>
-      Future.wait(outputs
+      pooledWait(outputs
           .map(_assetGraph.get)
           .cast<GeneratedAssetNode>()
           .where((n) => n.wasOutput)
@@ -779,7 +779,7 @@ class _SingleBuild {
           .where((n) => globNode.glob.matches(n.id.path))
           .toList();
 
-      await Future.wait(potentialNodes
+      await pooledWait(potentialNodes
           .whereType<GeneratedAssetNode>()
           .map(_ensureAssetIsBuilt)
           .map(toFuture));
@@ -821,7 +821,7 @@ class _SingleBuild {
 
     // Limit the total number of digests we are computing at a time. Otherwise
     // this can overload the event queue.
-    await Future.wait(ids.map((id) async {
+    await pooledWait(ids.map((id) async {
       var node = _assetGraph.get(id)!;
       if (node is GlobAssetNode) {
         await _updateGlobNodeIfNecessary(node);
